@@ -13,12 +13,14 @@ export default function DoctorDashboard() {
   const router = useRouter()
 
   useEffect(() => {
-    // Get user data from localStorage
-    const token = localStorage.getItem('token')
+    // Middleware now handles authentication.
+    // We only need to get user info for display purposes.
     const userName = localStorage.getItem('userName')
     const userRole = localStorage.getItem('userRole')
 
-    if (!token || userRole !== 'DOCTOR') {
+    // The middleware should have already redirected if the role is incorrect.
+    if (userRole !== 'DOCTOR') {
+      // This is a fallback, in case of inconsistent state.
       router.push('/auth/login')
       return
     }
