@@ -1,22 +1,31 @@
-FROM node:20-bullseye
+    # 1. Builder stage
+    FROM node:20-bullseye AS builder
+    WORKDIR /app
+    COPY carebridge/package*.json ./
+    RUN npm install
+    COPY carebridge/ .
+    RUN npx prisma generate
+    RUN npm run build
 
-WORKDIR /app
+    # 2. Production stage
+    FROM node:20-bullseye-slim AS production
+    WORKDIR /app
+    ENV NODE_ENV=production
 
-# Copy dependency files first
-COPY carebridge/package*.json ./
+    # Create a non-root user
+    RUN addgroup --system --gid 1001 nodejs
+    RUN adduser --system --uid 1001 nextjs
 
-# Install dependencies without running postinstall
-RUN npm install --ignore-scripts
+    # Copy production dependencies and built app from builder stage
+    COPY --from=builder /app/package*.json ./
+    RUN npm ci --omit=dev
+    COPY --from=builder /app/.next ./.next
+    COPY --from=builder /app/public ./public
+    COPY --from=builder /app/node_modules/.prisma ./.prisma
 
-# Copy full app
-COPY carebridge/ .
+    # Change ownership and switch to non-root user
+    RUN chown -R nextjs:nodejs /app
+    USER nextjs
 
-# Generate Prisma client (now OpenSSL is available)
-RUN npx prisma generate
-
-# Build Next.js app
-RUN npm run build
-
-EXPOSE 3000
-
-CMD ["npm", "run", "start"]
+    EXPOSE 3000
+    CMD ["npm", "run", "start"]
