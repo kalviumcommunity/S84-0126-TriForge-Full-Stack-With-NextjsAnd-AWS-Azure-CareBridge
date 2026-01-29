@@ -1,38 +1,371 @@
+# ============================================
+# CAREBRIDGE CI/CD PIPELINE WORKFLOW
+# ============================================
+# Purpose: Automate code quality checks,
+#          testing, building, and validation
+#          on every push and pull request
+# 
+# Triggers: 
+#   - Push to 'cloud-deployment' branch
+#   - Pull request to 'main' branch
+# 
+# Stages:
+#   1. Checkout code
+#   2. Setup Node.js environment
+#   3. Install dependencies
+#   4. Lint code (ESLint)
+#   5. Run tests
+#   6. Build Next.js application
+#   7. Validate Docker configuration
+# ============================================
+
 name: CI/CD Pipeline
 
+# ============================================
+# WORKFLOW TRIGGERS
+# ============================================
+# Specifies which GitHub events trigger
+# this workflow to run
 on:
   push:
     branches:
-      - cloud-deployment
+      - cloud-deployment              # Deployment branch
   pull_request:
     branches:
-      - main
+      - main                          # Main production branch
 
+# ============================================
+# ENVIRONMENT VARIABLES
+# ============================================
+# Can be referenced as ${{ env.VAR_NAME }}
+# in workflow steps
+env:
+  NODE_VERSION: 18                    # Node.js version to use
+  NPM_CACHE_DIR: ~/.npm               # Cache directory for npm
+
+# ============================================
+# JOBS DEFINITION
+# ============================================
+# Defines the work to be performed
 jobs:
+  # Job 1: Build, Test, and Validate
   build-test-docker:
+    # Display name in GitHub Actions UI
+    name: Build & Test Application
+    
+    # Operating system to run on
+    # ubuntu-latest provides Node, npm, Docker, git
     runs-on: ubuntu-latest
+    
+    # Continue on error flag
+    # Set to 'true' to prevent failure from blocking other jobs
+    continue-on-error: false
 
+    # ============================================
+    # STEPS
+    # ============================================
+    # Sequential tasks executed in order
+    # Pipeline stops on first failure
     steps:
-      - name: Checkout code
+      
+      # STEP 1: CHECKOUT REPOSITORY
+      # ============================
+      - name: Checkout repository code
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+        # Action: actions/checkout@v4
+        # Purpose: Clone the repository into the runner
+        # What it does:
+        #   - Pulls the latest code from the branch that triggered the workflow
+        #   - Makes all files available for subsequent steps
+        #   - Sets up git configuration for the workspace
         with:
-          node-version: 18
-          cache: npm
+          fetch-depth: 0              # Fetch full history (needed for some tools)
+          # fetch-depth: 0 allows tools to analyze full commit history
 
-      - name: Install dependencies
+      
+      # STEP 2: SETUP NODE.JS RUNTIME
+      # ==============================
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        # Action: actions/setup-node@v4
+        # Purpose: Install Node.js runtime and npm package manager
+        # What it does:
+        #   - Installs specified Node.js version
+        #   - Sets up npm, npx, and yarn
+        #   - Configures npm authentication if needed
+        with:
+          node-version: '18'          # Node.js LTS version
+          # node-version: '18' 
+          # - Matches package.json requirement: "node": ">=18.0.0"
+          # - LTS = Long Term Support (stable, production-ready)
+          # - Supports modern JavaScript (async/await, nullish coalescing, etc.)
+          
+          cache: 'npm'                # Enable npm dependency caching
+          # cache: 'npm' 
+          # - Caches node_modules and package-lock.json
+          # - Speeds up CI runs: first run ~3min, subsequent ~30s
+          # - Saves ~90% of installation time
+          # - Automatic restoration if dependencies haven't changed
+          
+          cache-dependency-path: 'carebridge/package-lock.json'
+          # Specify exact path to package-lock.json for multi-repo projects
+          # (not needed for single-root projects)
+
+      
+      # STEP 3: INSTALL DEPENDENCIES
+      # =============================
+      - name: Install project dependencies
         run: npm ci
+        # Command: npm ci (clean install)
+        # Purpose: Install exact versions from package-lock.json
+        # Difference from 'npm install':
+        #   - npm ci: Installs exact pinned versions (production)
+        #   - npm install: May update versions (development)
+        # Why npm ci in CI/CD:
+        #   - Deterministic builds
+        #   - Prevents surprise dependency updates
+        #   - Faster on CI runners
+        #   - More secure
+        # 
+        # Installs all dependencies from package.json:
+        # Production Dependencies:
+        #   - @prisma/client: Database ORM client
+        #   - next: React framework for production
+        #   - react: UI component library
+        #   - bcryptjs: Password hashing
+        #   - jsonwebtoken: JWT authentication
+        #   - ioredis: Redis client
+        #   - zod: Schema validation
+        #   - @vercel/blob: File storage
+        # 
+        # Development Dependencies:
+        #   - eslint: Code quality linter
+        #   - typescript: Type checking
+        #   - @types/react: React TypeScript definitions
+        #   - tailwindcss: CSS utility framework
+        # 
+        # Special: postinstall hook runs 'prisma generate'
+        #   - Generates Prisma client from schema.prisma
+        #   - Required for database access
 
-      - name: Lint code
+      
+      # STEP 4: CODE QUALITY CHECK (LINTING)
+      # =====================================
+      - name: Run ESLint code quality checks
         run: npm run lint
+        # Command: npm run lint
+        # Script definition from package.json: "lint": "eslint"
+        # Purpose: Check code style and quality
+        # What ESLint checks:
+        #   ✅ Syntax errors
+        #   ✅ Unused variables and imports
+        #   ✅ Missing error handling
+        #   ✅ Code style consistency
+        #   ✅ React best practices
+        #   ✅ Security issues
+        #   ✅ Deprecated APIs
+        # 
+        # Configuration files:
+        #   - .eslintrc.json: Main ESLint config
+        #     Rules:
+        #       - extends: ["next/core-web-vitals", "plugin:prettier/recommended"]
+        #       - no-console: "warn" → warns on console.log()
+        #       - semi: ["error", "always"] → requires semicolons
+        #       - quotes: ["error", "double"] → requires double quotes
+        #   
+        #   - eslint.config.js: Modern ESLint flat config
+        #     - Recommends ESLint rules
+        #     - Ignores: .next/, build/, node_modules/, out/
+        # 
+        # Failure behavior:
+        #   - Any error stops the pipeline
+        #   - PR shows "checks failed"
+        #   - Merge blocked until fixed
+        # 
+        # Common linting errors:
+        #   ❌ missing semicolon → add ;
+        #   ❌ unused variable → remove or use
+        #   ❌ single quotes → change to double quotes
+        #   ❌ console.log in production → remove or use warn level
 
-      - name: Run tests
+      
+      # STEP 5: RUN AUTOMATED TESTS
+      # ============================
+      - name: Run automated tests
         run: npm test
+        # Command: npm test
+        # Script definition from package.json: "test": "echo \"No tests yet\""
+        # Current status: PLACEHOLDER (no actual tests)
+        # 
+        # What SHOULD happen:
+        #   - Jest runs all test files
+        #   - Tests match pattern: **/*.test.ts(x) or **/*.spec.ts(x)
+        #   - Generates code coverage report
+        #   - Fails if test count decreases
+        # 
+        # Expected test files:
+        #   - src/components/__tests__/FileUpload.test.tsx
+        #   - src/hooks/__tests__/useProfile.test.ts
+        #   - src/lib/__tests__/jwt.test.ts
+        #   - src/lib/__tests__/auth-middleware.test.ts
+        # 
+        # Future implementation would be:
+        # "test": "jest --coverage --watchAll=false"
+        # 
+        # Tests would validate:
+        #   ✅ Component rendering
+        #   ✅ User interactions
+        #   ✅ API endpoint behavior
+        #   ✅ Data validation
+        #   ✅ Authentication logic
+        #   ✅ Error handling
 
-      - name: Build Next.js app
+      
+      # STEP 6: BUILD FOR PRODUCTION
+      # =============================
+      - name: Build Next.js application
         run: npm run build
+        # Command: npm run build
+        # Script definition from package.json: "build": "next build"
+        # 
+        # Purpose: Compile and optimize the entire application
+        # 
+        # Build process breakdown:
+        # 
+        # 1. TypeScript Compilation
+        #    File: tsconfig.json
+        #    - Compiles .ts and .tsx files to JavaScript
+        #    - Strict type checking enabled
+        #    - Detects type errors
+        #    - Target: ES2017 (wide browser compatibility)
+        #    - Path aliases: @/* → src/*
+        # 
+        # 2. React Component Processing
+        #    - Converts JSX syntax to React.createElement calls
+        #    - Bundles components with dependencies
+        #    - Optimizes component sizes
+        # 
+        # 3. Next.js Optimization
+        #    File: next.config.ts
+        #    - Generates optimized pages
+        #    - Code-splits at route boundaries
+        #    - Preloads critical resources
+        #    - Creates serverless functions for API routes
+        # 
+        # 4. CSS Processing
+        #    Files: tailwind.config.js, postcss.config.mjs
+        #    - Processes Tailwind CSS utility classes
+        #    - Runs PostCSS plugins
+        #    - Minifies CSS
+        #    - Removes unused styles
+        # 
+        # 5. Asset Optimization
+        #    - Compresses images (WebP, AVIF)
+        #    - Minifies JavaScript and CSS
+        #    - Creates optimized font subsets
+        #    - Generates source maps for debugging
+        # 
+        # 6. Prisma Client Generation
+        #    - Generates database client from schema.prisma
+        #    - Creates type-safe database queries
+        #    - Required for database operations
+        # 
+        # Output: .next/ directory containing
+        #   - compiled/.js files
+        #   - .html static pages
+        #   - .map source maps
+        #   - vercel functions (if using Vercel)
+        # 
+        # Failure reasons:
+        #   ❌ TypeScript compilation errors
+        #   ❌ Missing environment variables
+        #   ❌ Database schema issues
+        #   ❌ Import errors
+        #   ❌ Build configuration problems
 
-      - name: Docker build validation
-        run: docker build -t carebridge-app -f ./docker/Dockerfile .
+      
+      # STEP 7: DOCKER IMAGE VALIDATION
+      # ================================
+      - name: Validate Docker configuration
+        run: docker build -t carebridge-app:latest -f ./docker/Dockerfile .
+        # Command: docker build
+        # Options:
+        #   -t carebridge-app:latest  : Tag image as carebridge-app with latest version
+        #   -f ./docker/Dockerfile    : Use Dockerfile from docker/ directory
+        #   .                         : Build context is current directory
+        # 
+        # Purpose:
+        #   - Ensures app can be containerized
+        #   - Validates Dockerfile syntax
+        #   - Tests that all dependencies are available
+        #   - Creates a deployable container image
+        # 
+        # Dockerfile expected content:
+        #   Stage 1 (Builder):
+        #     - Use Node.js 18 Alpine base image (lightweight)
+        #     - Copy package files
+        #     - Run npm ci
+        #     - Copy source code
+        #     - Run npm run build
+        #   
+        #   Stage 2 (Runtime):
+        #     - Use Node.js 18 Alpine base image
+        #     - Copy .next from builder
+        #     - Copy node_modules from builder
+        #     - Copy package.json
+        #     - Expose port 3000
+        #     - Run npm start
+        # 
+        # Multi-stage build benefits:
+        #   ✅ Smaller final image
+        #   ✅ Faster deployments
+        #   ✅ Better security (no build tools in production)
+        # 
+        # Expected Dockerfile path:
+        #   carebridge/docker/Dockerfile
+        # 
+        # Failure reasons:
+        #   ❌ Dockerfile not found
+        #   ❌ Invalid Dockerfile syntax
+        #   ❌ Base image not available
+        #   ❌ Missing files in build context
+        #   ❌ Docker not installed on runner
+
+  
+  # ============================================
+  # OPTIONAL: NOTIFICATION JOB
+  # ============================================
+  # Uncomment to add notifications on failure
+  # notify-on-failure:
+  #   needs: build-test-docker
+  #   if: failure()
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Send Slack notification
+  #       uses: slackapi/slack-github-action@v1.24.0
+  #       with:
+  #         webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+  #         payload: |
+  #           {
+  #             "text": "CareBridge CI Pipeline Failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+  #           }
+
+
+# ============================================
+# WORKFLOW CONFIGURATION
+# ============================================
+# 
+# Concurrency Settings (to prevent duplicate runs):
+# Add this at root level to cancel previous runs
+# when new commit pushed:
+# 
+# concurrency:
+#   group: ${{ github.ref }}
+#   cancel-in-progress: true
+# 
+# This prevents:
+#   - Multiple CI runs for same branch
+#   - Resource waste on GitHub Actions
+#   - Conflicting deployment attempts
+#
+# ============================================
