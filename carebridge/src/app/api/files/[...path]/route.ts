@@ -54,6 +54,22 @@ export async function GET(
       }
     }
 
+    // For doctor documents, verify the doctor owns the file
+    if (filePath.startsWith('doctor-documents/')) {
+      if (user.role !== 'DOCTOR') {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      }
+
+      // Check if this file belongs to the doctor
+      const pathParts = filePath.split('/')
+      if (pathParts.length >= 2) {
+        const doctorIdFromPath = pathParts[1]
+        if (doctorIdFromPath !== user.userId) {
+          return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+        }
+      }
+    }
+
     // Read and serve the file
     const fileBuffer = await readFile(fullPath)
     const mimeType = getMimeType(filePath)
