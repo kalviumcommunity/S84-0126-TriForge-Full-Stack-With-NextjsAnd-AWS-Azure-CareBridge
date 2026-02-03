@@ -8,7 +8,7 @@ export interface UploadedFile {
   fileUrl: string
 }
 
-export async function handleFileUpload(request: NextRequest): Promise<{
+export async function handleFileUpload(request: NextRequest, uploadDir: string = 'medical-records'): Promise<{
   files: UploadedFile[]
   fields: Record<string, string>
 }> {
@@ -51,7 +51,7 @@ export async function handleFileUpload(request: NextRequest): Promise<{
           const { existsSync } = await import('fs')
           const path = await import('path')
 
-          const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'medical-records')
+          const uploadsDir = path.join(process.cwd(), 'public', 'uploads', uploadDir)
           if (!existsSync(uploadsDir)) {
             await mkdir(uploadsDir, { recursive: true })
           }
@@ -59,7 +59,7 @@ export async function handleFileUpload(request: NextRequest): Promise<{
           const bytes = await file.arrayBuffer()
           const buffer = Buffer.from(bytes)
           const filePath = path.join(uploadsDir, fileName)
-          const fileUrl = `/uploads/medical-records/${fileName}`
+          const fileUrl = `/uploads/${uploadDir}/${fileName}`
 
           await writeFile(filePath, buffer)
 

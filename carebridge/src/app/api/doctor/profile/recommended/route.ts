@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { qualifications, clinicName, consultationFee } = body
+    const { qualifications, clinicName, clinicAddress, clinicPhone, consultationFee, languagesSpoken } = body
 
     // Find existing doctor profile
     const existingProfile = await prisma.doctorProfile.findUnique({
@@ -56,7 +56,10 @@ export async function POST(request: NextRequest) {
       data: {
         qualifications: Array.isArray(qualifications) ? qualifications.filter(q => q.trim()) : [],
         clinicName: clinicName || null,
-        consultationFee: consultationFee ? parseFloat(consultationFee) : null
+        clinicAddress: clinicAddress || null,
+        clinicPhone: clinicPhone || null,
+        consultationFee: consultationFee ? parseFloat(consultationFee) : null,
+        languagesSpoken: Array.isArray(languagesSpoken) ? languagesSpoken.filter(l => l.trim()) : []
       }
     })
 

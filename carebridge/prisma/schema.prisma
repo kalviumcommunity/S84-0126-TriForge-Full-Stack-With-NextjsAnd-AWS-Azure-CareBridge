@@ -126,7 +126,10 @@ model DoctorProfile {
   // LEVEL 2 (optional)
   qualifications     String[]
   clinicName         String?
+  clinicAddress      String?
+  clinicPhone        String?
   consultationFee    Float?
+  languagesSpoken    String[]
 
   // LEVEL 3 (optional)
   licenseDocument    String? // URL to license document

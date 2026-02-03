@@ -7,8 +7,8 @@ import * as Dialog from '@radix-ui/react-dialog'
 import LampToggle from '@/components/LampToggle'
 import { useDoctorProfile } from '@/hooks/useDoctorProfile'
 import { useDoctorDashboard } from '@/hooks/useDoctorDashboard'
-import { useFileUpload } from '@/hooks/useFileUpload'
-import FileUpload from '@/components/FileUpload'
+import { useDoctorFileUpload } from '@/hooks/useDoctorFileUpload'
+import DoctorFileUpload from '@/components/DoctorFileUpload'
 
 interface User {
   name: string
@@ -52,7 +52,7 @@ export default function DoctorProfile() {
   const { dashboardData, refetch } = useDoctorDashboard()
   
   // File upload hook
-  const { uploadFile, isUploading } = useFileUpload()
+  const { uploadFile, isUploading } = useDoctorFileUpload()
 
   // Track if profile data exists (for showing Update vs Save)
   const [profileExists, setProfileExists] = useState({
@@ -110,10 +110,11 @@ export default function DoctorProfile() {
             qualifications: profile.qualifications || [],
             clinicInfo: {
               name: profile.clinicName || '',
-              address: '',
-              phone: ''
+              address: profile.clinicAddress || '',
+              phone: profile.clinicPhone || ''
             },
-            consultationFee: profile.consultationFee
+            consultationFee: profile.consultationFee,
+            languagesSpoken: profile.languagesSpoken || []
           }))
           setProfileExists(prev => ({ ...prev, recommended: true }))
         }
@@ -177,7 +178,10 @@ export default function DoctorProfile() {
       const recommendedData = {
         qualifications: profileData.qualifications,
         clinicName: profileData.clinicInfo?.name,
-        consultationFee: profileData.consultationFee
+        clinicAddress: profileData.clinicInfo?.address,
+        clinicPhone: profileData.clinicInfo?.phone,
+        consultationFee: profileData.consultationFee,
+        languagesSpoken: profileData.languagesSpoken
       }
 
       await updateRecommendedProfile(recommendedData)
@@ -514,16 +518,22 @@ export default function DoctorProfile() {
                   <div className="space-y-4">
                     <input
                       type="text"
+                      value={profileData.clinicInfo?.name || ''}
+                      onChange={(e) => updateProfileData('clinicInfo', { ...profileData.clinicInfo, name: e.target.value })}
                       placeholder="Clinic/Hospital name"
                       className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                     />
                     <textarea
+                      value={profileData.clinicInfo?.address || ''}
+                      onChange={(e) => updateProfileData('clinicInfo', { ...profileData.clinicInfo, address: e.target.value })}
                       placeholder="Full address"
                       rows={2}
                       className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                     />
                     <input
                       type="tel"
+                      value={profileData.clinicInfo?.phone || ''}
+                      onChange={(e) => updateProfileData('clinicInfo', { ...profileData.clinicInfo, phone: e.target.value })}
                       placeholder="Clinic phone number"
                       className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                     />
@@ -627,7 +637,7 @@ export default function DoctorProfile() {
                         <div className="flex gap-2">
                           {profileData.licenseDocument && (
                             <motion.a
-                              href={`/api/files/medical-records/${uploadedLicenseFile || 'license-document'}`}
+                              href={profileData.licenseDocument}
                               target="_blank"
                               rel="noopener noreferrer"
                               whileHover={{ scale: 1.05 }}
@@ -715,7 +725,7 @@ export default function DoctorProfile() {
             </Dialog.Description>
 
             {/* File Upload Component */}
-            <FileUpload onUpload={handleUploadLicense} isUploading={isUploading} />
+            <DoctorFileUpload onUpload={handleUploadLicense} isUploading={isUploading} />
 
             {/* Cancel Button */}
             <motion.button
