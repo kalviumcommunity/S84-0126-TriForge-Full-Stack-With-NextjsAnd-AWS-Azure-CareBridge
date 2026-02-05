@@ -33,60 +33,8 @@ function extractDegreeFromQualifications(qualifications?: string[]): string | nu
   return qualifications[0]
 }
 
-/**
- * Convert enum values to readable text for better doctor matching
- */
-function convertEnumToReadable(enumValue: string): string {
-  const enumMap: Record<string, string> = {
-    'HEART_DISEASE': 'heart disease',
-    'DIABETES': 'diabetes',
-    'HYPERTENSION': 'hypertension',
-    'ASTHMA': 'asthma',
-    'ARTHRITIS': 'arthritis',
-    'DEPRESSION': 'depression',
-    'ANXIETY': 'anxiety',
-    'SKIN_CONDITIONS': 'dermatology',
-    'DIGESTIVE_ISSUES': 'gastroenterology',
-    'HEADACHES_MIGRAINES': 'neurology',
-    'BACK_PAIN': 'orthopedics',
-    'ALLERGIES': 'allergy',
-    'RESPIRATORY_ISSUES': 'pulmonology',
-    'KIDNEY_DISEASE': 'nephrology',
-    'LIVER_DISEASE': 'hepatology',
-    'THYROID_DISORDERS': 'endocrinology',
-    'CANCER': 'oncology',
-    'NEUROLOGICAL_DISORDERS': 'neurology',
-    'MENTAL_HEALTH': 'psychiatry',
-    'WOMENS_HEALTH': 'gynecology',
-    'MENS_HEALTH': 'urology',
-    'PEDIATRIC_CARE': 'pediatrics',
-    'GERIATRIC_CARE': 'geriatrics',
-    'GENERAL_CHECKUP': 'general practice',
-    'PREVENTIVE_CARE': 'preventive medicine',
-    'OTHER': 'general practice'
-  }
 
-  return enumMap[enumValue] || enumValue.toLowerCase().replace(/_/g, ' ')
-}
 
-/**
- * Get match reason for why this doctor was recommended
- */
-function getMatchReason(doctorProfile: any, primaryProblem: string): string {
-  const readableProblem = convertEnumToReadable(primaryProblem)
-  
-  if (doctorProfile?.specialization?.toLowerCase().includes(readableProblem.toLowerCase())) {
-    return `Specializes in ${doctorProfile.specialization}`
-  }
-  
-  if (doctorProfile?.conditionsTreated?.some((condition: string) => 
-    condition.toLowerCase().includes(readableProblem.toLowerCase())
-  )) {
-    return `Treats ${readableProblem}`
-  }
-  
-  return 'Available for consultation'
-}
 
 // GET /api/doctors - Get all Level 3 doctors (not filtered by patient condition)
 export async function GET(request: NextRequest) {
