@@ -85,6 +85,8 @@ export default function PatientDashboard() {
     assignedDoctors[0] ||
     null
 
+  const unreadMessagesCount = messages.filter(message => message.sentBy === 'DOCTOR' && !message.readAt).length
+
   const fetchAccessGrants = async () => {
     setAccessLoading(true)
     setAccessError(null)
@@ -143,14 +145,18 @@ export default function PatientDashboard() {
   }
 
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (markRead = false) => {
     if (!selectedMessageDoctor) return
     setMessagesLoading(true)
     setMessagesError(null)
     try {
       const token = localStorage.getItem('token')
       if (!token) return
-      const response = await fetch(`/api/patient/messages?doctorId=${selectedMessageDoctor.id}`, {
+      const params = new URLSearchParams({ doctorId: selectedMessageDoctor.id })
+      if (markRead) {
+        params.set('markRead', '1')
+      }
+      const response = await fetch(`/api/patient/messages?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) {
@@ -189,7 +195,7 @@ export default function PatientDashboard() {
         setMessagesError(errorData.error || 'Failed to send message')
         return
       }
-      await fetchMessages()
+      await fetchMessages(true)
     } catch (err) {
       setMessagesError('Failed to send message')
     }
@@ -245,9 +251,9 @@ export default function PatientDashboard() {
       setMessages([])
       return
     }
-    fetchMessages()
+    fetchMessages(activeTab === 'messages')
     if (!['messages', 'dashboard'].includes(activeTab)) return
-    const interval = setInterval(fetchMessages, 5000)
+    const interval = setInterval(() => fetchMessages(activeTab === 'messages'), 5000)
     return () => clearInterval(interval)
   }, [selectedMessageDoctor, activeTab])
 
@@ -570,6 +576,11 @@ export default function PatientDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
                 Messages
+                {unreadMessagesCount > 0 && (
+                  <span className="ml-auto inline-flex items-center justify-center rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-200">
+                    {unreadMessagesCount}
+                  </span>
+                )}
               </motion.button>
             </li>
             <li>
@@ -998,7 +1009,14 @@ export default function PatientDashboard() {
                     {/* Messages */}
                     <div className="messages-card bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-semibold text-white">Messages</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-white">Messages</h3>
+                          {unreadMessagesCount > 0 && (
+                            <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-200">
+                              {unreadMessagesCount} unread
+                            </span>
+                          )}
+                        </div>
                         <button
                           onClick={() => setActiveTab('messages')}
                           className="text-emerald-400 text-sm hover:text-emerald-300"
@@ -1161,7 +1179,14 @@ export default function PatientDashboard() {
             <div className="messages-shell space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Messages</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-white">Messages</h2>
+                    {unreadMessagesCount > 0 && (
+                      <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-200">
+                        {unreadMessagesCount} unread
+                      </span>
+                    )}
+                  </div>
                   <p className="text-slate-400 text-sm">Secure, end-to-end care communication</p>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-300 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
@@ -1171,6 +1196,14 @@ export default function PatientDashboard() {
               </div>
 
               <div className="messages-panel bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6">
+                {unreadMessagesCount > 0 && (
+                  <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-100">
+                    <span>
+                      You have {unreadMessagesCount} unread message{unreadMessagesCount === 1 ? '' : 's'}.
+                    </span>
+                    <span className="text-amber-200">Open a chat to mark read</span>
+                  </div>
+                )}
                 {dashboardData?.sectionVisibility?.messages?.visible ? (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="messages-sidebar lg:col-span-1">
@@ -1290,9 +1323,39 @@ export default function PatientDashboard() {
                                         >
                                           <p>{msg.content}</p>
                                           {msg.createdAt && (
-                                            <p className="messages-muted text-[10px] text-slate-400 mt-2">
-                                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
+                                            <div
+                                              className={`mt-2 flex items-center gap-1 text-[10px] leading-none ${msg.sentBy === 'PATIENT'
+                                                ? 'justify-end text-slate-300'
+                                                : 'justify-start text-slate-400'}`}
+                                            >
+                                              <span>
+                                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                              </span>
+                                              {msg.sentBy === 'PATIENT' && (
+                                                <span className="inline-flex items-center" style={{ transform: 'translateY(0.5px)' }}>
+                                                  <svg
+                                                    className={`h-4 w-4 ${msg.readAt ? 'text-sky-400' : 'text-slate-400'}`}
+                                                    viewBox="0 0 18 12"
+                                                    fill="none"
+                                                  >
+                                                    <path
+                                                      d="M1 7l3 3 5-5"
+                                                      stroke="currentColor"
+                                                      strokeWidth="1.4"
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                    />
+                                                    <path
+                                                      d="M7 7l3 3 7-7"
+                                                      stroke="currentColor"
+                                                      strokeWidth="1.4"
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                    />
+                                                  </svg>
+                                                </span>
+                                              )}
+                                            </div>
                                           )}
                                         </div>
                                       </div>
