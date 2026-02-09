@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const patientId = searchParams.get('patientId')
     const limit = parseInt(searchParams.get('limit') || '50')
+    const markRead = searchParams.get('markRead') === '1'
 
     if (!patientId) {
       const assignments = await prisma.assignment.findMany({
@@ -39,6 +40,17 @@ export async function GET(request: NextRequest) {
         { error: 'No assignment found with this patient' },
         { status: 403 }
       )
+    }
+
+    if (markRead) {
+      await prisma.message.updateMany({
+        where: {
+          senderId: patientId,
+          receiverId: user.userId,
+          readAt: null
+        },
+        data: { readAt: new Date() }
+      })
     }
 
     const messages = await prisma.message.findMany({
