@@ -9,7 +9,6 @@ import BackgroundAnimation from '@/components/BackgroundAnimation'
 export default function Home() {
   const [scrolled, setScrolled] = useState(false)
   const { scrollY } = useScroll()
-  const backgroundY = useTransform(scrollY, [0, 500], [0, -50])
   const heroY = useTransform(scrollY, [0, 300], [0, -30])
 
   useEffect(() => {
