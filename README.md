@@ -266,6 +266,10 @@ Injected securely during CI/CD builds.
 
 ---
 
+⏳ Error & Loading States
+
+Error and loading states are implemented to improve user experience during data fetching operations. A loading indicator is displayed while data is being retrieved, ensuring users know the process is in progress. Proper error handling shows meaningful error messages when requests fail, preventing blank screens and improving reliability. This enhances usability and makes the application more robust.
+
 # 🏗️ Docker, CI/CD & Cloud Deployment
 
 ## Dockerization
